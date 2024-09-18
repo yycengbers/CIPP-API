@@ -13,7 +13,7 @@
 # Remove this if you are not planning on using MSI or Azure PowerShell.
 
 # Import modules
-@('CippCore', 'CippExtensions', 'Az.KeyVault', 'Az.Accounts') | ForEach-Object {
+@('CIPPCore', 'CippExtensions', 'Az.KeyVault', 'Az.Accounts') | ForEach-Object {
     try {
         $Module = $_
         Import-Module -Name $_ -ErrorAction Stop
@@ -46,6 +46,24 @@ try {
     Write-LogMessage -message 'Could not retrieve keys from Keyvault' -LogData (Get-CippException -Exception $_) -Sev 'debug'
 }
 
+Set-Location -Path $PSScriptRoot
+$CurrentVersion = (Get-Content .\version_latest.txt).trim()
+$Table = Get-CippTable -tablename 'Version'
+$LastStartup = Get-CIPPAzDataTableEntity @Table -Filter "PartitionKey eq 'Version' and RowKey eq 'Version'"
+if ($CurrentVersion -ne $LastStartup.Version) {
+    Write-Host "Version has changed from $($LastStartup.Version) to $CurrentVersion"
+    Clear-CippDurables
+    if ($LastStartup) {
+        $LastStartup.Version = $CurrentVersion
+    } else {
+        $LastStartup = [PSCustomObject]@{
+            PartitionKey = 'Version'
+            RowKey       = 'Version'
+            Version      = $CurrentVersion
+        }
+    }
+    Update-AzDataTableEntity @Table -Entity $LastStartup
+}
 # Uncomment the next line to enable legacy AzureRm alias in Azure PowerShell.
 # Enable-AzureRmAlias
 
